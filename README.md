@@ -1,50 +1,24 @@
 # wurtzsearch
 
-FIXME: my new application.
+Takes questions from billwurtz.com/questions and adds them to an algolia index so they can be searched with a client like [this one](https://github.com/armincerf/WurtzSearchClient)
 
 ## Installation
 
-Download from https://github.com/armincerf/wurtzsearch.
+clone this project
 
-## Usage
+install clojure: https://clojure.org/guides/getting_started
 
-FIXME: explanation
-
-Run the project directly:
-
-    $ clojure -m armincerf.wurtzsearch
-
-Run the project's tests (they'll fail until you edit them):
-
-    $ clojure -A:test:runner
-
-Build an uberjar:
-
-    $ clojure -A:uberjar
-
-Run that uberjar:
-
-    $ java -jar wurtzsearch.jar
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
+run with `clojure -m armincerf.wurtzsearch APP-ID API-KEY` (get your app id and api key from signing up for an [algolia account](https://www.algolia.com/)
 
 ### Bugs
 
-...
+_Might_ be missing a couple of questions due to the janky way I'm scraping the site. But the lack of markup on bills page really doesn't make things easy and I'm trying to get this done quickly
 
-### Any Other Sections
-### That You Think
-### Might be Useful
+Its also probably quite inefficient, but there aren't enough questions to warrant any real efforts there
 
 ## License
 
-Copyright © 2020 Juxtgreg
+Copyright © 2020 Alex Davis
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
