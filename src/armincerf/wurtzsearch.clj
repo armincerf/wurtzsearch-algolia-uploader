@@ -106,6 +106,7 @@
         (process-url url-string index)))))
 
 (comment
+  ;;throwaway account api key, may not work anymore
   (def client (DefaultSearchClient/create "XMYY7X6YSY" "020a2412365c6bad1a4ff56f4ae3b9ae"))
   (def index (.initIndex client "questions"))
   (java/from-java (.saveObject index {:question "TEST TEST TEST" :timestamp #inst "2020" :answer "ANSWER"} true)))
