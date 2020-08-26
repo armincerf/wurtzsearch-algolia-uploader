@@ -19,34 +19,35 @@
          (catch Exception e
            (println "Couldn't parse " s)))))
 
+(defn part->html
+  [content]
+  (str/join
+   (for [part content]
+     (if (map? part)
+       (let [tag (some-> part :tag name)]
+         (str "<" tag
+              (when-let [href (get-in part [:attrs :href])]
+                (str" href='" href "'"))
+              ">"
+              (str/join (:content part))
+              "</" tag ">"))
+       part))))
+
 (defn question-text
   [question]
-  (def question question)
   (let [question-el (some-> question
-                            :content
-                            vec
-                            (get-in [3 :content])
-                            first)]
-    (cond
-      ;; Question contains a link to 'similar questions' page
-      (map? question-el)
-      {:link (str "https://billwurtz.com/questions/" (get-in question-el [:attrs :href]))
-       :text (first (:content question-el))}
-      ;; Question is a normal string
-      (string? question-el)
-      (str/trim question-el)
-      ;else return nothing
-      :else
-      nil)))
+                            (html/select [:qco])
+                            first
+                            :content)]
+    (part->html question-el)))
 
 (defn question-time
   [question]
-  (def question question)
   (some-> question
-          :content
-          vec
-          (get-in [1 :content])
+          (html/select [:dco])
           first
+          :content
+          str/join
           parse-time-string))
 
 (defn format-content
@@ -54,23 +55,25 @@
   (let [timestamp (some->> (question-time question)
                            (reset! latest-time))]
     (when-let [question-text (question-text question)]
-      {:question question-text
-       :timestamp @latest-time
-       :answer (when (string? answer)
-                 (-> answer
-                     str/trim
-                     (str/replace #" " "")))})))
+      {"question" question-text
+       "timestamp" @latest-time
+       "answer" (when (seq answer)
+                 (part->html answer))})))
 
 (defn content-for-date
   [raw-questions]
   (let [;; questions have no html structure that can be used to parse things
-        ;; properly so have to use some magic numbers and partition into
-        ;; [question answer] format... not pretty but the structure of the site
-        ;; has never changed so probably not a big issue
-        content (->> 6
-                     (nth (html/select raw-questions [:body]))
-                     :content
-                     (drop 11)
+        ;; properly so have to use some fairly fragile code here Basically we
+        ;; select only h3s, strings and a tags in the root of the body, get rid
+        ;; of the 'static' a tags that aren't questions or answers, partition by
+        ;; h3 tags as an h3 always designates the start of a new question, and
+        ;; then split into [question answer] so we can process it
+        content (->> (html/select raw-questions #{[:body :> :h3] [:body :> html/text-node] [:body :> :a]})
+                     (remove #(and (string? %) (< (.length (str/trim %)) 4)))
+                     (remove #(= "MORE RECENT QUESTIONS" (first (:content %))))
+                     (remove #(= "bottom" (get-in % [:attrs :name])))
+                     (remove #(= "PREVIOUS QUESTIONS" (first (:content %))))
+                     (partition-by #(= :h3 (:tag %)))
                      (partition 2))]
     (->> (map format-content content)
          (remove nil?))))
@@ -84,6 +87,7 @@
                                html/html-resource)
                            (catch Exception e
                              (println "No content found..")))]
+    (def raw-questions raw-questions)
     (when raw-questions
       (println "Uploading to algolia")
       (.saveObjects index (content-for-date raw-questions) true))))
@@ -92,19 +96,15 @@
   [& args]
   (let [algolia-client (DefaultSearchClient/create (first args) (second args))
         index (.initIndex algolia-client "bill questions")]
-    (.setSettings index (-> (IndexSettings.)
-                            (.setAttributeForDistinct "foo")
-                            (.setDistinct true)))
-    (println algolia-client index)
     (process-url "https://billwurtz.com/questions/questions.html" index)
     ;; backfill previous questions
-    #_(doseq [year (range 2016 (inc (Integer/parseInt current-year)))]
+    (doseq [year (range 2016 (inc (Integer/parseInt current-year)))]
       (doseq [month (map inc (range 12))
               :let [date-str (str year "-" (format "%02d" month))
                     url-string (str "https://billwurtz.com/questions/questions-" date-str ".html")]]
         (println "Processing " url-string " to index " index)
         (process-url url-string index)))))
-
+(-main "XMYY7X6YSY" "020a2412365c6bad1a4ff56f4ae3b9ae")
 (comment
   ;;throwaway account api key, may not work anymore
   (def client (DefaultSearchClient/create "XMYY7X6YSY" "020a2412365c6bad1a4ff56f4ae3b9ae"))
